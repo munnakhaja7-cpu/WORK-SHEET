@@ -1,0 +1,6 @@
+{
+  "name": "Guest Ledger Pro",
+  "description": "Daily guest entry ledger with auto-pricing, monthly summary, and PDF report export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
