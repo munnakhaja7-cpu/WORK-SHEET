@@ -29,7 +29,6 @@ jobs:
           java -version
           echo "JAVA_HOME is set to: $JAVA_HOME"
           
-          # Detect Java major version
           JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | cut -d'.' -f1)
           if [ "$JAVA_VERSION" = "1" ]; then
             JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | cut -d'.' -f2)
@@ -106,12 +105,13 @@ jobs:
 
       - name: Prepare APK release asset
         id: prepare-asset
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
           mkdir -p temp_release_dir
           
-          # Sanitize repository name
           REPO_NAME=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
-          ASSET_FILENAME="${REPO_NAME}-debug-build-${{ github.run_number }}.apk"
+          ASSET_FILENAME="${REPO_NAME}-debug-build-${RUN_NUMBER}.apk"
           ASSET_PATH="temp_release_dir/$ASSET_FILENAME"
           
           cp app/build/outputs/apk/debug/app-debug.apk "$ASSET_PATH"
@@ -130,6 +130,9 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          COMMIT_SHA: ${{ github.sha }}
         run: |
           echo "Checking GitHub CLI version..."
           gh --version
@@ -140,20 +143,20 @@ jobs:
             exit 1
           fi
           
-          TAG="debug-apk-build-${{ github.run_number }}-${{ github.run_attempt }}"
-          TITLE="Debug APK Build #${{ github.run_number }}"
+          TAG="debug-apk-build-${RUN_NUMBER}-${RUN_ATTEMPT}"
+          TITLE="Debug APK Build #$RUN_NUMBER"
           
           echo "Creating GitHub Release with tag: $TAG..."
           gh release create "$TAG" \
             "$ASSET_PATH" \
             --title "$TITLE" \
-            --target "${{ github.sha }}" \
+            --target "$COMMIT_SHA" \
             --latest \
             --notes "This is an automatically generated debug APK.
 - Built by GitHub Actions.
-- GitHub Actions Run Number: ${{ github.run_number }}
-- GitHub Actions Run Attempt: ${{ github.run_attempt }}
-- Source Commit SHA: ${{ github.sha }}
+- GitHub Actions Run Number: $RUN_NUMBER
+- GitHub Actions Run Attempt: $RUN_ATTEMPT
+- Source Commit SHA: $COMMIT_SHA
 - Intended for testing purposes.
 - Not a Play Store production release.
 - Signed only with a temporary debug keystore."
@@ -162,10 +165,12 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           if [ "${{ steps.release.outcome }}" == "success" ]; then
             echo "Release publishing succeeded!"
-            TAG="debug-apk-build-${{ github.run_number }}-${{ github.run_attempt }}"
+            TAG="debug-apk-build-${RUN_NUMBER}-${RUN_ATTEMPT}"
             
             echo "Fetching release details..."
             gh release view "$TAG" || true
